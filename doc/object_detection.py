@@ -18,11 +18,11 @@ import numpy as np
 """
  Parameter list
 """
-model_path = r"C:\Users\taychuan\OneDrive - Intel Corporation\Desktop\Intel_OpenVINO\openvino_models\ir\public\ssd_mobilenet_v2_coco\FP32\ssd_mobilenet_v2_coco.xml"
-weight_path = r"C:\Users\taychuan\OneDrive - Intel Corporation\Desktop\Intel_OpenVINO\openvino_models\ir\public\ssd_mobilenet_v2_coco\FP32\ssd_mobilenet_v2_coco.bin"
-input = 0
-# input = r"C:\Users\taychuan\OneDrive - Intel Corporation\Desktop\IMDC\face.jpg"
-label_mapping_path = r"C:\openvino\openvino_2021.4.752\deployment_tools\open_model_zoo\data\dataset_classes\coco_91cl_bkgr.txt"
+model_path = r""
+weight_path = r""
+input_src = 0
+#input_src = r""
+label_mapping_path = r""
 device = 'CPU'
 prob_threshold = 0.5
 max_num_request = 2
@@ -33,8 +33,8 @@ def print__version():
     log.info(f"Current path : {Path(__file__).resolve().parents[0]}")
 
 class SSD():
-    def __init__(self, ie, model_path):
-        self.net = ie.read_network(model_path)
+    def __init__(self, ie, model_path, weight_path):
+        self.net = ie.read_network(model = model_path, weights = weight_path)
         self.input_blob_name = next(iter(self.net.input_info)) #get input name from the model, iter() - returns an iterator for the given object
         self.output_blob_name = next(iter(self.net.outputs)) #get output name from the model 
         self.n, self.c, self.h, self.w = self.net.input_info[self.input_blob_name].input_data.shape
@@ -44,8 +44,8 @@ class SSD():
 """
 Utils function
 """
-def get_model(ie, model_path):
-    return SSD(ie, model_path)
+def get_model(ie, model_path, weight_path):
+    return SSD(ie, model_path, weight_path)
     
 def load_label(label_mapping_path):
     if os.path.isfile(label_mapping_path):
@@ -67,23 +67,21 @@ def preprocess(inputs, size, shape):
     resized_image = resized_image.reshape(shape)
     return resized_image
 
-def open_image_capture(input):
-    if os.path.isfile(input):
+def open_image_capture(input_src):
+    if os.path.isfile(input_src):
         image=True
-        return cv2.imread(input, cv2.IMREAD_COLOR),image #(num_rows, num_cols, num_channels)
-    elif input == 0:
+        return cv2.imread(input_src, cv2.IMREAD_COLOR),image #(num_rows, num_cols, num_channels)
+    elif input_src == 0:
         image=False
         cap = cv2.VideoCapture()
         cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
         cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
-        # cap.set(cv2.CAP_PROP_FPS, 30)
-        # cap.set(cv2.CAP_PROP_AUTOFOCUS, 1)
-        status = cap.open(input)
+        status = cap.open(input_src)
         if not status:
-            raise log.info(f"Can't find the camera {input}")
+            raise log.info(f"Can't find the camera {input_src}")
         return cap, image
     else:
-        raise log.info(f"Input {input} is invalid.")
+        raise log.info(f"Input {input_src} is invalid.")
  
 def plot_bbox(frame, bbox, label, prob):
     font=cv2.FONT_HERSHEY_DUPLEX
@@ -119,6 +117,7 @@ def postprocess(frame, detections, labels, fps, input_width, input_height):
                     int(detection[4] * input_height),
                     int(detection[5] * input_width),
                     int(detection[6] * input_height))
+            # print(objLabel) show the result 
             frame = plot_bbox(frame, bbox, label=objLabel, prob=prob) 
     frame_to_show = cv2.putText(frame, text=text_fps, org=text_org, fontFace=font, fontScale=font_size, color=text_color, thickness=1) 
     return frame_to_show
@@ -127,18 +126,15 @@ Main function
 """
 
 def main():
-    frame_id = 0
-    frame_id_to_show = 0
-    
     log.info('Initializing Inference Engine...')
     ie = IECore()
     log.info('Reading network from IR...')
-    model = get_model(ie=ie, model_path=model_path)
+    model = get_model(ie=ie, model_path=model_path, weight_path=weight_path)
     labels = load_label(label_mapping_path=label_mapping_path)
     
     exec_net = ie.load_network(network=model.net, device_name=device, num_requests=max_num_request)
 
-    cap, image = open_image_capture(input)
+    cap, image = open_image_capture(input_src=input_src)
     if not image:
         input_width = cap.get(3)
         input_height = cap.get(4)    
@@ -150,14 +146,13 @@ def main():
     print("To close the application, switch to the output window and press ESC key or 'q' key")
    
     while True:
-        
+ 
         if image == False:
             _,frame = cap.read() #event, frame: we only need frame here
         else:
             frame = cap
         if frame is None:
-            if next_frame_id == 0:
-                raise ValueError("Can't read an image from the input")
+            raise ValueError("Can't read an image from the input")
             break
             
         in_frame = preprocess(frame, (model.w, model.h), (model.n, model.c, model.h, model.w))
