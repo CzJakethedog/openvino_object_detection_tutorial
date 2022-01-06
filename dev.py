@@ -43,10 +43,10 @@ class SSD():
         - get the input blob name, output blob name
         - get the batch, channel, height, weight value from the model
         """
-        self.net = ie.read_network(model = model_path, weights = weight_path)
-        self.input_blob_name = next(iter(self.net.input_info)) #get input name from the model, iter() - returns an iterator for the given object
-        self.output_blob_name = next(iter(self.net.outputs)) #get output name from the model 
-        self.n, self.c, self.h, self.w = self.net.input_info[self.input_blob_name].input_data.shape
+        self.net = #read network
+        self.input_blob_name = #get input_info e from the model, iter() - returns an iterator for the given object
+        self.output_blob_name = #get outputs from the model 
+        self.n, self.c, self.h, self.w = # get input_data.shape from the input_info
    
     def model_details(self):
         return log.info(f"Height: {self.h}, Width: {self.w}, Channel: {self.c}, Batch Size: {self.n}")
